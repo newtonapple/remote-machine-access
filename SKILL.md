@@ -1,6 +1,8 @@
 ---
 name: remote-machine-access
 description: Manage and access remote machines via SSH or Tailscale. Use when the user references a remote machine, node, server, or host — e.g., "run this on the remote box", "check GPU usage on the node", "deploy to the cluster", "access the remote node", "SSH into the machine". Triggers on any request involving remote execution, remote commands, remote file operations, or cluster/node management.
+metadata:
+  version: 1.0.0
 ---
 
 # Remote Machine Access
