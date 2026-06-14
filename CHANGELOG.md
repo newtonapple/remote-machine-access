@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- README now frames the skill as agent-agnostic — usable by any harness supporting the
+  skills convention (Claude Code, Codex, pi, opencode, and others) — not Claude
+  Code-specific.
 - README install instructions now document the agent-agnostic `.agents/skills/`
   convention with symlinks into `.claude/skills/`, alongside the Claude-only setup.
 

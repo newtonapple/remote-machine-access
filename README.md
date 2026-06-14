@@ -1,7 +1,8 @@
 # remote-machine-access
 
-A [Claude Code](https://docs.claude.com/en/docs/claude-code) skill for managing and
-accessing remote machines over SSH or Tailscale.
+An agent skill for managing and accessing remote machines over SSH or Tailscale. It works
+with any agent harness that supports the skills convention — Claude Code, Codex, pi,
+opencode, and others — via the agent-agnostic `.agents/skills/` layout.
 
 It teaches the agent to discover machine configs in `.remote-nodes/<host>.yaml`, connect
 via SSH or Tailscale SSH, run commands, transfer files, and add new nodes — **without
@@ -18,12 +19,14 @@ avoids duplicating the skill per tool.
 ### Recommended — agent-agnostic, symlinked per tool
 
 ```bash
-# User-level: one source of truth, exposed to Claude Code via a symlink
+# User-level: one source of truth, exposed to each harness via a symlink
 git clone https://github.com/newtonapple/remote-machine-access.git \
   ~/.agents/skills/remote-machine-access
 mkdir -p ~/.claude/skills
 ln -s ~/.agents/skills/remote-machine-access ~/.claude/skills/remote-machine-access
 ```
+
+Symlink into other harnesses' skills directories the same way (e.g. Codex, pi, opencode).
 
 ```bash
 # Project-level: same idea with repo-relative paths
