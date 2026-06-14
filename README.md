@@ -14,11 +14,11 @@ Clone into your Claude skills directory:
 
 ```bash
 # User-level (available in every project)
-git clone https://github.com/<owner>/remote-machine-access.git \
+git clone https://github.com/newtonapple/remote-machine-access.git \
   ~/.claude/skills/remote-machine-access
 
 # or project-level
-git clone https://github.com/<owner>/remote-machine-access.git \
+git clone https://github.com/newtonapple/remote-machine-access.git \
   .claude/skills/remote-machine-access
 ```
 
@@ -53,3 +53,9 @@ the machine is reachable via SSH (and Tailscale, if configured).
 |---|---|
 | `SKILL.md` | The skill: rules, config format, and connection/command/transfer workflows |
 | `scripts/check-node.py` | Config validation + connectivity check |
+| `CHANGELOG.md` | Release history ([Keep a Changelog](https://keepachangelog.com/en/1.1.0/)) |
+| `VERSION` | Current version |
+
+## License
+
+[MIT](LICENSE)
