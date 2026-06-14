@@ -10,16 +10,36 @@ storing any credentials** in config files (auth comes from SSH keys, ssh-agent,
 
 ## Install
 
-Clone into your Claude skills directory:
+Skills can live in a tool-specific directory (`~/.claude/skills/` for Claude Code) or in
+the agent-agnostic `~/.agents/skills/` convention shared across agent tools. Keeping one
+source of truth in `.agents/skills/` and symlinking it into each tool's skills directory
+avoids duplicating the skill per tool.
+
+### Recommended — agent-agnostic, symlinked per tool
 
 ```bash
-# User-level (available in every project)
+# User-level: one source of truth, exposed to Claude Code via a symlink
 git clone https://github.com/newtonapple/remote-machine-access.git \
-  ~/.claude/skills/remote-machine-access
+  ~/.agents/skills/remote-machine-access
+mkdir -p ~/.claude/skills
+ln -s ~/.agents/skills/remote-machine-access ~/.claude/skills/remote-machine-access
+```
 
-# or project-level
+```bash
+# Project-level: same idea with repo-relative paths
 git clone https://github.com/newtonapple/remote-machine-access.git \
-  .claude/skills/remote-machine-access
+  .agents/skills/remote-machine-access
+mkdir -p .claude/skills
+ln -s ../../.agents/skills/remote-machine-access .claude/skills/remote-machine-access
+```
+
+### Simple — Claude Code only
+
+Clone straight into the Claude skills directory (user- or project-level):
+
+```bash
+git clone https://github.com/newtonapple/remote-machine-access.git \
+  ~/.claude/skills/remote-machine-access      # or: .claude/skills/remote-machine-access
 ```
 
 The skill activates automatically when a request involves a remote machine, node, server,

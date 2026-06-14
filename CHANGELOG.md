@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- README install instructions now document the agent-agnostic `.agents/skills/`
+  convention with symlinks into `.claude/skills/`, alongside the Claude-only setup.
+
 ## [1.0.0] - 2026-06-14
 
 ### Added
