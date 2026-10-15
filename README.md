@@ -77,6 +77,7 @@ the machine is reachable via SSH (and Tailscale, if configured).
 | `SKILL.md` | The skill: rules, config format, and connection/command/transfer workflows |
 | `scripts/check-node.py` | Config validation + connectivity check |
 | `scripts/winrun.py` | Run PowerShell on a Windows node over SSH (encoding, long scripts, exit codes) |
+| `scripts/wake.py` | Wake-on-LAN: list the machines that have a MAC and their wake state, send a magic packet, wait for ping and SSH. Needs `uv` (installs `typer` and `pyyaml`) and a sender on the target's LAN; see SKILL.md |
 | `CHANGELOG.md` | Release history ([Keep a Changelog](https://keepachangelog.com/en/1.1.0/)) |
 | `VERSION` | Current version |
 

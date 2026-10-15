@@ -2,7 +2,7 @@
 name: remote-machine-access
 description: Manage and access remote machines via SSH or Tailscale. Use when the user references a remote machine, node, server, or host — e.g., "run this on the remote box", "check GPU usage on the node", "deploy to the cluster", "access the remote node", "SSH into the machine". Triggers on any request involving remote execution, remote commands, remote file operations, or cluster/node management.
 metadata:
-  version: 1.1.0
+  version: 1.2.0
 ---
 
 # Remote Machine Access
@@ -18,10 +18,11 @@ SSH or Tailscale, run commands, transfer files, and add new nodes.
   backgrounded processes when `~/.ssh/config` sets `RequestTTY=yes`.
 - **MUST** clean up any temporary tunnel you create (see [Tunnels](#tunnels)).
 - **MUST** name each config file `<host>.yaml`, matching its `host:` field.
-- Node configs **MUST** hold only connection info. **MUST NOT** add component-specific
-  metadata (model lists, Docker images, recipes, GPU specs, project paths) — a parent
-  config merges into every sub-component's context, and such data duplicates what the
-  component owns and goes stale.
+- Node configs **MUST** hold only connection info (a MAC address and the Wake-on-LAN fields
+  below count: they are how you reach a machine that is off). **MUST NOT** add
+  component-specific metadata (model lists, Docker images, recipes, GPU specs, project paths)
+  (a parent config merges into every sub-component's context, and such data duplicates what
+  the component owns and goes stale).
 
 ## Building the SSH Target
 
@@ -58,6 +59,10 @@ A config is a flat YAML file at `.remote-nodes/<host>.yaml` defining one machine
 | `description` | No | Human-readable note |
 | `lan_ip` | No | LAN IP for direct access / fallback |
 | `tailscale_ip` | No | Tailscale IP fallback |
+| `mac` | No | NIC MAC address (quote it). Needed to wake the machine with Wake-on-LAN |
+| `wol` | No | Wake-on-LAN state: `tested`, `untested` (default) or `none` |
+| `wol_broadcast` | No | Broadcast address for the packet (default: `lan_ip` with the last octet 255) |
+| `wol_same_as` | No | Other OS side of a dual-boot machine: the node file that carries `mac` and `wol` |
 
 Default to the minimal form; add fields only when `~/.ssh/config` doesn't supply them:
 
@@ -94,6 +99,64 @@ Give each OS its own node file: `<host>` for the Windows side and `<host>-ubuntu
 Linux side. The tailnet names must differ (Tailscale renames the second one otherwise).
 Only one OS is reachable at a time, so a timeout on one entry usually means the box booted
 into the other OS. Create the Linux entry after the install, not before.
+
+## Waking Machines (Wake-on-LAN)
+
+A machine that is off cannot be reached by SSH. If it supports Wake-on-LAN (WoL), `scripts/wake.py`
+wakes it with a magic packet. The node file records which machines can be woken: `mac` says how,
+`wol` says whether it has been shown to work.
+
+```yaml
+# .remote-nodes/gpu-box.yaml
+host: gpu-box
+hostname: gpu-box
+lan_ip: 192.168.1.50
+mac: "aa:bb:cc:dd:ee:ff"
+# tested: a magic packet woke it from a full shutdown. untested: not tried. none: does not work.
+wol: tested
+```
+
+Run the script from the directory that holds `.remote-nodes/`, with `uv` (it reads the dependencies
+from the script's header). `<skill>` is the folder this skill is installed in.
+
+```bash
+uv run <skill>/scripts/wake.py list                 # every machine with a MAC: LAN IP, wol state
+uv run <skill>/scripts/wake.py wake gpu-box         # send the packet, wait for ping and SSH
+uv run <skill>/scripts/wake.py wake gpu-box --dry-run
+```
+
+**Requirements**
+
+- `uv` (https://docs.astral.sh/uv/). It installs the script's two Python dependencies, `typer` and
+  `pyyaml`, on first run. Without `uv`, use Python 3.10 or newer and `pip install typer pyyaml`.
+- `ping` and `ssh` on the PATH. The script uses them to wait for the machine.
+- The `wakeonlan` command is optional. The script uses it when found and otherwise sends the packet
+  itself with Python's socket module.
+- The computer running the script must be on the **same LAN** as the target. A magic packet is a
+  layer 2 broadcast and does not cross a router or a VPN. The script asks the routing table and
+  refuses a send that cannot arrive, with the reason.
+- The target must be set up for WoL: enabled in the BIOS/UEFI (some boards also need a deep-sleep
+  or ErP-style power saving setting off), a wired NIC that supports it, and the OS must leave the NIC
+  armed at shutdown (on Linux, `ethtool <if>` shows `Wake-on: g`). Many Linux drivers come up with
+  it off, so check after a reboot, not only after setting it.
+
+**Behavior**
+
+- Nothing is sent when the machine already answers ping (`--force` overrides). `wol: none` also
+  stops the script (`--force` overrides).
+- After sending it waits for ping, then for SSH on the node files of that machine. A timeout means
+  check the NIC link light, how the machine was shut down, and the BIOS settings above.
+- The broadcast address defaults to `lan_ip` with the last octet set to 255 (a /24). Set
+  `wol_broadcast` for any other netmask.
+- **Dual-boot machines** share one NIC and MAC, so a wake starts the machine, not an OS: the
+  bootloader picks the OS. Put `mac` and `wol` in one node file and `wol_same_as: <that node>` in the
+  other; the script reports which side answered SSH.
+- To find out which machines can be woken, run `list` rather than copying its output into docs.
+  Update `wol` to `tested` or `none` when you try a machine.
+
+**Powering a machine off** needs no script. Linux: `ssh -t <host> 'sudo systemctl poweroff'` (`-t`
+so sudo can ask for a password; never type or store the password for the user). Windows:
+`ssh <host> 'shutdown /s /t 5'`.
 
 ## Windows Nodes
 

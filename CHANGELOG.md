@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-10-15
+
+### Added
+
+- `scripts/wake.py` (typer, run with `uv`): `list` shows every machine that has a MAC with its
+  Wake-on-LAN state; `wake` sends a magic packet (with `wakeonlan` when installed, otherwise with
+  Python's socket module), refuses a send that cannot reach the target's LAN, skips machines that
+  already answer ping, and waits for ping and SSH. Dependencies: `uv` (or Python 3.10 and
+  `pip install typer pyyaml`), `ping`, `ssh`.
+- Node-file fields `mac`, `wol`, `wol_broadcast`, `wol_same_as`.
+- SKILL.md section Waking Machines (Wake-on-LAN): requirements, target setup, behavior, and how to
+  power a machine off over SSH.
+
 ## [1.1.0] - 2026-10-12
 
 ### Added
