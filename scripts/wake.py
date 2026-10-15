@@ -217,8 +217,9 @@ def wake(
     deadline = time.monotonic() + 120
     while time.monotonic() < deadline:
         for m in members:
-            r = subprocess.run(ssh_cmd(nodes[m], "true"), capture_output=True, timeout=30)
-            if r.returncode == 0:
+            # `echo ok` runs in bash and in the Windows cmd.exe shell; `true` does not exist on Windows.
+            r = subprocess.run(ssh_cmd(nodes[m], "echo ok"), capture_output=True, text=True, timeout=30)
+            if r.returncode == 0 and "ok" in r.stdout:
                 typer.echo(f"{m} answers SSH after {int(time.monotonic() - sent_at)}s")
                 raise typer.Exit(0)
         time.sleep(4)
