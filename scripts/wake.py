@@ -85,10 +85,20 @@ def machine_of(nodes: dict[str, dict], name: str) -> tuple[str, list[str]]:
     return primary, members
 
 
-def ssh_cmd(cfg: dict, *remote: str, connect_timeout: int = 8) -> list[str]:
+def configured_hostname(alias: str) -> str:
+    """The HostName that ~/.ssh/config gives an SSH alias (the host-key name on the lan_ip fallback)."""
+    out = subprocess.run(["ssh", "-G", alias], capture_output=True, text=True).stdout
+    return next((ln.split(None, 1)[1] for ln in out.splitlines() if ln.startswith("hostname ")), alias)
+
+
+def ssh_cmd(cfg: dict, *remote: str, connect_timeout: int = 8, lan: bool = False) -> list[str]:
     host = str(cfg["hostname"])
     target = f"{cfg['user']}@{host}" if cfg.get("user") else host
     cmd = ["ssh", "-T", "-o", "BatchMode=yes", "-o", f"ConnectTimeout={connect_timeout}", "-o", "ControlPath=none"]
+    if lan:
+        # Same user, key and host key as the alias, but connect to lan_ip: a machine that has booted but whose
+        # VPN or DNS name is not up yet (a Windows box before Tailscale starts) is still reachable.
+        cmd += ["-o", f"HostName={cfg['lan_ip']}", "-o", f"HostKeyAlias={configured_hostname(host)}"]
     if cfg.get("port"):
         cmd += ["-p", str(cfg["port"])]
     if cfg.get("identity_file"):
@@ -97,14 +107,19 @@ def ssh_cmd(cfg: dict, *remote: str, connect_timeout: int = 8) -> list[str]:
 
 
 def ssh_answers(cfg: dict, connect_timeout: int = 8) -> bool:
-    """True when SSH logs in and runs a command. `echo ok` works in bash and in the Windows cmd.exe shell;
-    `true` does not exist on Windows."""
-    try:
-        r = subprocess.run(ssh_cmd(cfg, "echo ok", connect_timeout=connect_timeout), capture_output=True, text=True,
-                           timeout=connect_timeout + 20)
-    except subprocess.SubprocessError:
-        return False
-    return r.returncode == 0 and "ok" in r.stdout
+    """True when SSH logs in and runs a command, by the node's hostname or else by its lan_ip. `echo ok` works in
+    bash and in the Windows cmd.exe shell; `true` does not exist on Windows."""
+    for lan in (False, True):
+        if lan and not cfg.get("lan_ip"):
+            continue
+        try:
+            r = subprocess.run(ssh_cmd(cfg, "echo ok", connect_timeout=connect_timeout, lan=lan),
+                               capture_output=True, text=True, timeout=connect_timeout + 20)
+        except subprocess.SubprocessError:
+            continue
+        if r.returncode == 0 and "ok" in r.stdout:
+            return True
+    return False
 
 
 def on_link(ip: str) -> Optional[bool]:

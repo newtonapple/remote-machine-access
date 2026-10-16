@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `scripts/wake.py` also tries SSH by the node's `lan_ip` (same user, key and host key as the alias) when the
+  hostname does not answer, so a machine that has booted but whose VPN or DNS name is not up yet counts as up.
 - `scripts/wake.py` counts a machine as up when it answers SSH as well as ping. Windows drops ping by
   default, so a Windows machine that had booted was reported as a failed wake.
 
