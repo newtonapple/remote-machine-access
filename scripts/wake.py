@@ -85,15 +85,26 @@ def machine_of(nodes: dict[str, dict], name: str) -> tuple[str, list[str]]:
     return primary, members
 
 
-def ssh_cmd(cfg: dict, *remote: str) -> list[str]:
+def ssh_cmd(cfg: dict, *remote: str, connect_timeout: int = 8) -> list[str]:
     host = str(cfg["hostname"])
     target = f"{cfg['user']}@{host}" if cfg.get("user") else host
-    cmd = ["ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "-o", "ControlPath=none"]
+    cmd = ["ssh", "-T", "-o", "BatchMode=yes", "-o", f"ConnectTimeout={connect_timeout}", "-o", "ControlPath=none"]
     if cfg.get("port"):
         cmd += ["-p", str(cfg["port"])]
     if cfg.get("identity_file"):
         cmd += ["-i", str(Path(str(cfg["identity_file"])).expanduser())]
     return cmd + [target, *remote]
+
+
+def ssh_answers(cfg: dict, connect_timeout: int = 8) -> bool:
+    """True when SSH logs in and runs a command. `echo ok` works in bash and in the Windows cmd.exe shell;
+    `true` does not exist on Windows."""
+    try:
+        r = subprocess.run(ssh_cmd(cfg, "echo ok", connect_timeout=connect_timeout), capture_output=True, text=True,
+                           timeout=connect_timeout + 20)
+    except subprocess.SubprocessError:
+        return False
+    return r.returncode == 0 and "ok" in r.stdout
 
 
 def on_link(ip: str) -> Optional[bool]:
@@ -203,27 +214,32 @@ def wake(
     if not wait:
         raise typer.Exit(0)
 
-    typer.echo(f"waiting up to {timeout}s for {lan_ip} to answer ping ...")
+    typer.echo(f"waiting up to {timeout}s for {primary} to answer ping or SSH ...")
+    up_by = ""
     while time.monotonic() - sent_at < timeout:
+        # Windows drops ping by default, so a booted Windows machine only shows up over SSH.
         if answers_ping(str(lan_ip)):
+            up_by = "ping"
             break
-        time.sleep(3)
+        up_node = next((m for m in members if ssh_answers(nodes[m], 3)), None)
+        if up_node:
+            up_by = f"SSH on {up_node}"
+            break
+        time.sleep(2)
     else:
-        typer.echo(f"no ping after {timeout}s. Check the NIC link light, that the machine was shut down from an OS "
-                   f"that leaves Wake-on-LAN armed, and the BIOS/UEFI power settings.", err=True)
+        typer.echo(f"no answer to ping or SSH after {timeout}s. Check the NIC link light, that the machine was shut "
+                   f"down from an OS that leaves Wake-on-LAN armed, and the BIOS/UEFI power settings.", err=True)
         raise typer.Exit(1)
-    typer.echo(f"answers ping after {int(time.monotonic() - sent_at)}s")
+    typer.echo(f"answers {up_by} after {int(time.monotonic() - sent_at)}s")
 
     deadline = time.monotonic() + 120
     while time.monotonic() < deadline:
         for m in members:
-            # `echo ok` runs in bash and in the Windows cmd.exe shell; `true` does not exist on Windows.
-            r = subprocess.run(ssh_cmd(nodes[m], "echo ok"), capture_output=True, text=True, timeout=30)
-            if r.returncode == 0 and "ok" in r.stdout:
+            if ssh_answers(nodes[m]):
                 typer.echo(f"{m} answers SSH after {int(time.monotonic() - sent_at)}s")
                 raise typer.Exit(0)
         time.sleep(4)
-    typer.echo(f"pings but none of {', '.join(members)} answers SSH yet (a dual-boot machine boots its last-used "
+    typer.echo(f"up, but none of {', '.join(members)} answers SSH yet (a dual-boot machine boots its last-used "
                f"or default OS; it may be the other side, or still starting)")
 
 
